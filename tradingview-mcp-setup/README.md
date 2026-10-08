@@ -59,6 +59,52 @@ Switch the chart to XAUUSD on 1-hour timeframe. Add EMA 200, EMA 50, and RSI 14.
 Then tell me the current price and where RSI is right now.
 ```
 
+## Kasus nyata: port 9222 dipakai Google Chrome (Windows)
+
+Gejala: skrip launch menulis "CDP ready", tapi `tv_health_check` gagal dengan
+`CDP connection failed ... Unexpected end of JSON input`.
+
+Diagnosis:
+
+```powershell
+netstat -ano | findstr :9222                       # PID yang LISTENING
+Get-Process -Id <PID> | Select ProcessName, Path   # ternyata chrome.exe
+curl.exe -v http://127.0.0.1:9222/json/version     # 404 Not Found, body kosong
+```
+
+Skrip launch hanya mengecek exit code `curl`, jadi jawaban 404 dari Chrome tetap dianggap "CDP ready".
+
+Solusi: pindahkan TradingView ke port lain (misalnya 9333).
+
+1. Tambahkan `env` ke entry `tradingview` di config Claude Desktop:
+   ```json
+   "tradingview": {
+     "command": "C:\\Program Files\\nodejs\\node.exe",
+     "args": ["C:\\Users\\<USER>\\tradingview-mcp\\src\\server.js"],
+     "env": { "TV_CDP_PORT": "9333" }
+   }
+   ```
+2. Selalu buka TradingView dengan `scripts\launch_tv_debug.bat 9333`.
+3. Verifikasi: `curl.exe -s http://127.0.0.1:9333/json/version` harus berisi `"Browser"` dan `TradingView/...`.
+
+## Lokasi config Claude Desktop versi Microsoft Store
+
+Kalau Claude Desktop dipasang dari Microsoft Store, `%APPDATA%\Claude\claude_desktop_config.json` tidak ada.
+File aslinya ada di:
+
+```powershell
+Get-ChildItem "$env:LOCALAPPDATA\Packages\Claude_*\LocalCache\Roaming\Claude\claude_desktop_config.json"
+```
+
+Cara paling aman: Claude Desktop → Settings → Developer → Edit Config. Quit Claude Desktop sebelum menyimpan,
+karena aplikasi juga menulis ke file ini. Cek validitas JSON sebelum membuka Claude lagi:
+
+```powershell
+Get-Content <path-config> -Raw | ConvertFrom-Json | Select -ExpandProperty mcpServers
+```
+
+Tes koneksi harus dilakukan di mode **Chat** Claude Desktop, bukan sesi Code di cloud.
+
 ## Troubleshooting
 
 | Masalah | Solusi |

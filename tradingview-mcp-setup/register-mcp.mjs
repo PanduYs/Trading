@@ -11,12 +11,21 @@ if (!fs.existsSync(serverJs)) {
   process.exit(1);
 }
 
+function storeConfigPath() {
+  // Claude Desktop versi Microsoft Store (MSIX) menyimpan config di folder paket.
+  const pkgs = path.join(process.env.LOCALAPPDATA || '', 'Packages');
+  if (!fs.existsSync(pkgs)) return null;
+  const dir = fs.readdirSync(pkgs).find(d => d.startsWith('Claude_'));
+  return dir ? path.join(pkgs, dir, 'LocalCache', 'Roaming', 'Claude', 'claude_desktop_config.json') : null;
+}
+
 const desktopConfig =
-  process.platform === 'darwin'
+  (process.platform === 'win32' && storeConfigPath()) ||
+  (process.platform === 'darwin'
     ? path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
     : process.platform === 'win32'
       ? path.join(process.env.APPDATA || '', 'Claude', 'claude_desktop_config.json')
-      : path.join(os.homedir(), '.config', 'Claude', 'claude_desktop_config.json');
+      : path.join(os.homedir(), '.config', 'Claude', 'claude_desktop_config.json'));
 
 if (!fs.existsSync(path.dirname(desktopConfig))) {
   console.log('Claude Desktop tidak terdeteksi, lewati.');
@@ -38,6 +47,7 @@ if (fs.existsSync(desktopConfig)) {
 }
 
 config.mcpServers = config.mcpServers || {};
-config.mcpServers.tradingview = { command: 'node', args: [serverJs] };
+config.mcpServers.tradingview = { command: process.execPath, args: [serverJs] };
+if (process.env.TV_CDP_PORT) config.mcpServers.tradingview.env = { TV_CDP_PORT: process.env.TV_CDP_PORT };
 fs.writeFileSync(desktopConfig, JSON.stringify(config, null, 2) + '\n');
 console.log(`Claude Desktop: tradingview ditambahkan ke ${desktopConfig}`);
